@@ -1,0 +1,19 @@
+{
+  "name": "lucky-money-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.11.0"
+  },
+  "scripts": {
+    "setup": "node scripts/setup-env.mjs",
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test --experimental-test-isolation=none tests/*.test.mjs"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "mongoose": "^8.9.5"
+  }
+}
