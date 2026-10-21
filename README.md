@@ -17,7 +17,18 @@ Sửa `.env` vừa tạo: điền `MONGO_URI`, `ADMIN_USERNAME`, `ADMIN_PASSWORD
 npm start
 ```
 
-API mặc định chạy trên cổng `4000`. Kiểm tra tại `http://localhost:4000/api/health`.
+API lắng nghe trên `0.0.0.0`, dùng biến môi trường `PORT` của server deploy; mặc định là `4000`.
+
+Đặt **Health Check Path** trên hosting thành `/health`, dùng cùng cổng `PORT` với API. Endpoint không yêu cầu đăng nhập, hỗ trợ `GET` và `HEAD`, không cache kết quả:
+
+- `200`: MongoDB đã kết nối, JSON `{"ok":true,"database":"connected"}`.
+- `503`: MongoDB chưa sẵn sàng, JSON `{"ok":false,"database":"unavailable"}`.
+
+Đường dẫn `/api/health` vẫn hoạt động với cùng phản hồi. Kiểm tra local:
+
+```bash
+curl -f http://localhost:4000/health
+```
 
 ```bash
 npm test
@@ -48,7 +59,7 @@ Hai hostname cùng site và dùng HTTPS như ví dụ có thể dùng `COOKIE_SA
 
 Checkout repo vào `/srv/luckymoney/backend`, cài dependencies và cấu hình `.env` như trên. Tạo user/group `luckymoney` có quyền đọc code và `.env`. Hai file mẫu:
 
-- [deploy/nginx-backend.conf](deploy/nginx-backend.conf): đổi hostname và đường dẫn chứng chỉ TLS; proxy `/api/` tới Node tại `127.0.0.1:4000`, giới hạn request body `70m` cho ảnh QR.
+- [deploy/nginx-backend.conf](deploy/nginx-backend.conf): đổi hostname và đường dẫn chứng chỉ TLS; proxy `/api/` và `/health` tới Node tại `127.0.0.1:4000`, giới hạn request body `70m` cho ảnh QR.
 - [deploy/luckymoney-backend.service](deploy/luckymoney-backend.service): đổi thư mục checkout, user/group và đường dẫn Node nếu khác mẫu.
 
 ```bash
@@ -61,7 +72,7 @@ sudo cp deploy/nginx-backend.conf /etc/nginx/sites-available/luckymoney-backend
 sudo ln -s /etc/nginx/sites-available/luckymoney-backend /etc/nginx/sites-enabled/luckymoney-backend
 sudo nginx -t
 sudo systemctl reload nginx
-curl https://api.example.com/api/health
+curl -f https://api.example.com/health
 ```
 
 Cho backend kết nối tới MongoDB và Cloudinary. Chỉ cho proxy/mạng nội bộ truy cập cổng Node `4000`. Sau khi đổi code hoặc `.env`, chạy `sudo systemctl restart luckymoney-backend`.

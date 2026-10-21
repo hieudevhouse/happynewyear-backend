@@ -47,6 +47,24 @@ test('direct cross-origin frontend requests receive credentialed preflight and D
   assert.ok(Number.isFinite(Date.parse(response.headers.get('date'))));
 });
 
+test('health probes support GET and HEAD without a session and track database recovery', async t => {
+  const { store, base } = await fixture(t);
+  for (const ready of [true, false, true]) {
+    store.ready = ready;
+    for (const path of ['/health', '/api/health']) {
+      for (const method of ['GET', 'HEAD']) {
+        // Hosting probes do not send a browser Origin or authentication cookie.
+        const response = await fetch(`${base}${path}`, { method, signal: AbortSignal.timeout(5000) });
+        assert.equal(response.status, ready ? 200 : 503);
+        assert.equal(response.headers.get('cache-control'), 'no-store');
+        assert.equal(response.headers.get('set-cookie'), null);
+        if (method === 'HEAD') assert.equal(await response.text(), '');
+        else assert.deepEqual(await response.json(), { ok: ready, database: ready ? 'connected' : 'unavailable' });
+      }
+    }
+  }
+});
+
 test('unknown origins cannot preflight, read sessions, or create admin sessions', async t => {
   const { request, base } = await fixture(t);
   for (const origin of ['https://untrusted.example', 'null', base]) {

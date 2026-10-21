@@ -76,8 +76,9 @@ export function createApp({ store, config = {}, uploader }) {
   // A 50 MiB image becomes about 67 MiB when sent as a Base64 data URI.
   const uploadJson = express.json({ limit: '70mb', strict: true });
   app.use((req, res, next) => (req.method === 'POST' && /^\/api\/(admin|player)\/uploads\/qr\/?$/.test(req.path) ? uploadJson : normalJson)(req, res, next));
-  app.get('/api/health', (_, res) => {
+  app.get(['/health', '/api/health'], (_, res) => {
     const ready = store.isReady();
+    res.setHeader('Cache-Control', 'no-store');
     res.status(ready ? 200 : 503).json({ ok: ready, database: ready ? 'connected' : 'unavailable' });
   });
   app.use('/api', (req, res, next) => store.isReady() ? next() : res.status(503).json({ message: 'Cơ sở dữ liệu chưa sẵn sàng. Vui lòng thử lại sau.' }));
