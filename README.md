@@ -10,7 +10,7 @@ Kiểm tra `https://<domain-backend>/health` sau khi deploy. Nếu báo `503`, x
 
 ## Chạy ứng dụng
 
-Cần Node.js từ `22.11.0` trở lên và MongoDB.
+Cần Node.js `22.x` (tối thiểu `22.11.0`) và MongoDB. Backend cố định major `22.x` trong `engines.node` để môi trường Vercel khớp với runtime đã kiểm tra.
 
 ```bash
 npm ci --omit=dev

@@ -17,7 +17,7 @@ Import repo backend vào Vercel, hoặc mở **Settings → Build and Deployment
 
 `server.js` import Express và export default app để Vercel nhận diện entry point. Vercel triển khai toàn bộ Express app thành một Function. Không đặt `npm start` làm Build Command; không cần mở cổng hoặc tự đặt `PORT` trên Vercel. `npm start` và `PORT=4000` vẫn dùng được khi chạy local/VPS. Xem [Express trên Vercel](https://vercel.com/docs/frameworks/backend/express) và [hướng dẫn triển khai Express](https://vercel.com/kb/guide/ship-a-express-app-on-vercel).
 
-Chọn Node `22.x` để dùng cùng phiên bản major với repo. `engines.node` trong `package.json` có thể ghi đè lựa chọn trên dashboard; kiểm tra phiên bản thực tế trong Build Logs. Xem [Node.js versions](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions).
+Repo cố định `engines.node` là `22.x`, cùng major với môi trường đã kiểm tra và driver MongoDB `6.20` trong lockfile. Không dùng `>=22.11.0` cho backend trên Vercel: range này có thể chọn Node `24.x` và ghi đè lựa chọn trên dashboard. Kiểm tra phiên bản thực tế trong Build Logs. Xem [Node.js versions](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions) và [MongoDB driver compatibility](https://www.mongodb.com/docs/drivers/compatibility/).
 
 ## Biến môi trường
 
