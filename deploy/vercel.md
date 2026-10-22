@@ -88,6 +88,8 @@ Nếu `code` là `DATABASE_UNAVAILABLE`, endpoint health có thêm `reason` là 
 | `DATABASE_NETWORK_UNREACHABLE` | Atlas IP Access List, đường mạng/firewall và trạng thái cluster; mã này không tự chứng minh IP bị chặn |
 | `DATABASE_CONNECTION_FAILED` / `DATABASE_INITIALIZATION_FAILED` | Lỗi chưa phân loại; đối chiếu Runtime Logs và cấu hình deployment |
 
+Với `DATABASE_TLS_ERROR`, health có thêm `detail` cố định để phân biệt internal alert, lỗi tin cậy/thời hạn/hostname của chứng chỉ và protocol/cipher. Trường `runtime` ghi phiên bản Node/OpenSSL thực tế để so sánh môi trường local với Vercel; không đọc giá trị env để tạo thông tin này.
+
 Ứng dụng khởi tạo MongoDB khi có request và dùng lại kết nối trong cùng instance. Lỗi cấu hình/kết nối được trả thành `503` thay vì làm entry point crash. Khi khởi tạo thành công, `/` trả `404` vì repo chỉ phục vụ API; dùng `/health` để kiểm tra.
 
 `500 FUNCTION_INVOCATION_FAILED` là lỗi Function không thực thi thành công; mã `hkg1::...` chỉ giúp đối chiếu request, chưa cho biết nguyên nhân. Mở project → **Logs**, lọc đúng deployment/domain và thời điểm, gọi lại `/health`, rồi xem log của request đó. Build Logs chỉ cho biết quá trình build; lỗi runtime cần xem Runtime Logs. Khi chia sẻ log, bỏ connection string, mật khẩu và token. Xem [Runtime Logs](https://vercel.com/docs/logs/runtime) và [FUNCTION_INVOCATION_FAILED](https://vercel.com/docs/errors/function_invocation_failed).

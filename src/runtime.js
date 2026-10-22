@@ -2,7 +2,7 @@ import { createApp } from './app.js';
 import { configFromEnv } from './config.js';
 import { MongoStore } from './mongo-store.js';
 import { PRIZES } from './prizes.js';
-import { databaseFailureReason, DATABASE_FAILURE_REASONS } from './database-errors.js';
+import { databaseFailureReason, databaseTlsDetail, DATABASE_FAILURE_REASONS, DATABASE_TLS_DETAILS } from './database-errors.js';
 
 const unavailableMessage = 'API is temporarily unavailable. Please try again later.';
 
@@ -44,13 +44,14 @@ export function createRuntime({ env = process.env, storeFactory = () => new Mong
       return app;
     } catch (error) {
       const reason = code === 'DATABASE_UNAVAILABLE' ? databaseFailureReason(error, databaseStage) : undefined;
+      const detail = reason === 'DATABASE_TLS_ERROR' ? databaseTlsDetail(error) : undefined;
       // Driver errors can contain the URI and credentials. Only log our fixed messages.
       if (candidateStore) {
         try { await candidateStore.close(); }
         catch { logger.error('MongoDB cleanup failed after API initialization.'); }
       }
-      logger.error(reason ? `${message} [${reason}]` : message);
-      throw Object.assign(new Error(message), { code, ...(reason ? { reason } : {}) });
+      logger.error(reason ? `${message} [${reason}${detail ? `/${detail}` : ''}]` : message);
+      throw Object.assign(new Error(message), { code, ...(reason ? { reason } : {}), ...(detail ? { detail } : {}) });
     }
   };
 
@@ -75,6 +76,10 @@ export function createRuntime({ env = process.env, storeFactory = () => new Mong
       const health = ['/health', '/api/health'].includes(req.path.replace(/\/$/, ''));
       const diagnostic = code === 'DATABASE_UNAVAILABLE' && DATABASE_FAILURE_REASONS.includes(error.reason)
         ? { reason: error.reason } : {};
+      if (diagnostic.reason === 'DATABASE_TLS_ERROR' && DATABASE_TLS_DETAILS.includes(error.detail)) {
+        diagnostic.detail = error.detail;
+        diagnostic.runtime = { node: process.versions.node, openssl: process.versions.openssl };
+      }
       res.status(503).json(health ? { ok: false, database: 'unavailable', code, ...diagnostic } : { message: unavailableMessage, code });
     });
   };

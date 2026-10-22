@@ -232,6 +232,33 @@ test('concurrent cold requests share initialization and warm requests reuse the 
   assert.deepEqual(store.calls, { connect: 1, initialize: 1, close: 0 });
 });
 
+test('TLS health failures identify the fixed subtype and actual runtime without exposing driver data', async t => {
+  const messages = [];
+  const runtime = createRuntime({
+    env: ENV,
+    storeFactory: () => fakeStore({ connect() {
+      throw Object.assign(new Error(`Driver error for ${ENV.MONGO_URI} password=${ENV.ADMIN_PASSWORD}`), {
+        name: 'MongoServerSelectionError',
+        cause: Object.assign(new Error('tlsv1 alert internal error'), { code: 'ERR_SSL_TLSV1_ALERT_INTERNAL_ERROR' }),
+      });
+    } }),
+    logger: { error: message => messages.push(message) },
+  });
+  const request = await serve(t, runtime);
+  const response = await request('/api/health');
+  const body = await response.json();
+  assert.equal(response.status, 503);
+  assert.deepEqual(body, {
+    ok: false, database: 'unavailable', code: 'DATABASE_UNAVAILABLE', reason: 'DATABASE_TLS_ERROR',
+    detail: 'TLS_ALERT_INTERNAL', runtime: { node: process.versions.node, openssl: process.versions.openssl },
+  });
+  assert.match(messages.join(' '), /DATABASE_TLS_ERROR\/TLS_ALERT_INTERNAL/);
+  for (const output of [JSON.stringify(body), messages.join(' ')]) {
+    assert.ok(!output.includes(ENV.MONGO_URI));
+    assert.ok(!output.includes(ENV.ADMIN_PASSWORD));
+  }
+});
+
 test('closing during initialization waits for ownership, closes once, and allows a later fresh runtime', async () => {
   const connected = deferred();
   const firstStore = fakeStore({ connect: () => connected.promise });
