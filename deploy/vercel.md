@@ -76,11 +76,23 @@ Nếu quá trình khởi tạo thất bại, JSON `503` có thêm `code` để p
 | `DATABASE_UNAVAILABLE` | Connection string, trạng thái cluster, Network Access và quyền database user; lỗi cũng có thể xảy ra khi tạo index hoặc khởi tạo dữ liệu |
 | `API_INITIALIZATION_ERROR` | Lỗi tạo ứng dụng sau khi kết nối database; đối chiếu bản code và cấu hình backend |
 
+Nếu `code` là `DATABASE_UNAVAILABLE`, endpoint health có thêm `reason` là một mã cố định; không trả lại lỗi thô, hostname hoặc thông tin đăng nhập:
+
+| `reason` | Cần kiểm tra |
+| --- | --- |
+| `DATABASE_AUTHENTICATION_FAILED` | Database user, mật khẩu và `authSource` trong `MONGO_URI` của deployment |
+| `DATABASE_PERMISSION_DENIED` | Quyền database user đối với database, collection và index |
+| `DATABASE_DNS_ERROR` | Hostname/SRV trong connection string và khả năng phân giải DNS |
+| `DATABASE_TLS_ERROR` | Kết nối TLS và chứng chỉ đến MongoDB |
+| `DATABASE_URI_INVALID` | Định dạng URI và ký tự đặc biệt trong user/password đã được URL-encode |
+| `DATABASE_NETWORK_UNREACHABLE` | Atlas IP Access List, đường mạng/firewall và trạng thái cluster; mã này không tự chứng minh IP bị chặn |
+| `DATABASE_CONNECTION_FAILED` / `DATABASE_INITIALIZATION_FAILED` | Lỗi chưa phân loại; đối chiếu Runtime Logs và cấu hình deployment |
+
 Ứng dụng khởi tạo MongoDB khi có request và dùng lại kết nối trong cùng instance. Lỗi cấu hình/kết nối được trả thành `503` thay vì làm entry point crash. Khi khởi tạo thành công, `/` trả `404` vì repo chỉ phục vụ API; dùng `/health` để kiểm tra.
 
 `500 FUNCTION_INVOCATION_FAILED` là lỗi Function không thực thi thành công; mã `hkg1::...` chỉ giúp đối chiếu request, chưa cho biết nguyên nhân. Mở project → **Logs**, lọc đúng deployment/domain và thời điểm, gọi lại `/health`, rồi xem log của request đó. Build Logs chỉ cho biết quá trình build; lỗi runtime cần xem Runtime Logs. Khi chia sẻ log, bỏ connection string, mật khẩu và token. Xem [Runtime Logs](https://vercel.com/docs/logs/runtime) và [FUNCTION_INVOCATION_FAILED](https://vercel.com/docs/errors/function_invocation_failed).
 
-Khi đưa bản sửa entry point lên Git, cần có cả `server.js`, `src/runtime.js` và `src/mongo-store.js`. Nếu bỏ sót file mới `src/runtime.js`, import sẽ thất bại trước khi ứng dụng có thể trả JSON `503`. Trong **Deployments**, kiểm tra deployment Production đã dùng đúng commit chứa bản sửa. Redeploy commit cũ không đưa các thay đổi còn ở máy local lên Vercel.
+Khi đưa bản sửa entry point lên Git, cần có cả `server.js`, `src/runtime.js`, `src/database-errors.js` và `src/mongo-store.js`. Nếu bỏ sót một module mới, import sẽ thất bại trước khi ứng dụng có thể trả JSON `503`. Trong **Deployments**, kiểm tra deployment Production đã dùng đúng commit chứa bản sửa. Redeploy commit cũ không đưa các thay đổi còn ở máy local lên Vercel.
 
 ## Giới hạn upload QR
 

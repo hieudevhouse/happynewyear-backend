@@ -142,7 +142,7 @@ test('database connection failure cleans up, hides driver credentials, and retri
   const request = await serve(t, runtime);
   const unavailable = await request('/api/health');
   assert.equal(unavailable.status, 503);
-  assert.deepEqual(await unavailable.json(), { ok: false, database: 'unavailable', code: 'DATABASE_UNAVAILABLE' });
+  assert.deepEqual(await unavailable.json(), { ok: false, database: 'unavailable', code: 'DATABASE_UNAVAILABLE', reason: 'DATABASE_CONNECTION_FAILED' });
   assert.deepEqual(failed.calls, { connect: 1, initialize: 0, close: 1 });
   assert.equal(runtime.store, undefined);
   assert.ok(!messages.join(' ').includes(ENV.MONGO_URI));
@@ -169,10 +169,39 @@ test('database initialization and app construction failures close their partial 
       assert.equal(response.status, 503);
       assert.deepEqual(await response.json(), {
         ok: false, database: 'unavailable', code: stage === 'initialize' ? 'DATABASE_UNAVAILABLE' : 'API_INITIALIZATION_ERROR',
+        ...(stage === 'initialize' ? { reason: 'DATABASE_INITIALIZATION_FAILED' } : {}),
       });
       assert.deepEqual(store.calls, { connect: 1, initialize: 1, close: 1 });
       assert.equal(runtime.store, undefined);
     });
+  }
+});
+
+test('health exposes a fixed database failure reason while logs and API responses omit credentials', async t => {
+  const messages = [];
+  const runtime = createRuntime({
+    env: ENV,
+    storeFactory: () => fakeStore({ connect() {
+      throw Object.assign(new Error(`Authentication failed for ${ENV.MONGO_URI}, password=${ENV.ADMIN_PASSWORD}`), { code: 18 });
+    } }),
+    logger: { error: message => messages.push(message) },
+  });
+  const request = await serve(t, runtime);
+  const health = await request('/api/health');
+  const body = await health.json();
+  assert.equal(health.status, 503);
+  assert.deepEqual(body, {
+    ok: false, database: 'unavailable', code: 'DATABASE_UNAVAILABLE', reason: 'DATABASE_AUTHENTICATION_FAILED',
+  });
+  const api = await request('/api/auth/me');
+  assert.equal(api.status, 503);
+  assert.deepEqual(await api.json(), {
+    message: 'API is temporarily unavailable. Please try again later.', code: 'DATABASE_UNAVAILABLE',
+  });
+  assert.match(messages.join(' '), /DATABASE_AUTHENTICATION_FAILED/);
+  for (const output of [JSON.stringify(body), messages.join(' ')]) {
+    assert.ok(!output.includes(ENV.MONGO_URI));
+    assert.ok(!output.includes(ENV.ADMIN_PASSWORD));
   }
 });
 

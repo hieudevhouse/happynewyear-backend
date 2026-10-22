@@ -2,6 +2,7 @@ import { createApp } from './app.js';
 import { configFromEnv } from './config.js';
 import { MongoStore } from './mongo-store.js';
 import { PRIZES } from './prizes.js';
+import { databaseFailureReason, DATABASE_FAILURE_REASONS } from './database-errors.js';
 
 const unavailableMessage = 'API is temporarily unavailable. Please try again later.';
 
@@ -16,6 +17,7 @@ export function createRuntime({ env = process.env, storeFactory = () => new Mong
   const initialize = async () => {
     let candidateStore;
     let code = 'API_CONFIGURATION_ERROR';
+    let databaseStage = 'connect';
     let message = 'API configuration is invalid. Check CLIENT_ORIGIN, COOKIE_SECURE, COOKIE_SAME_SITE, and TRUST_PROXY.';
     try {
       const invalid = [];
@@ -31,6 +33,7 @@ export function createRuntime({ env = process.env, storeFactory = () => new Mong
       message = 'MongoDB connection failed. Check MONGO_URI and MongoDB network access.';
       candidateStore = storeFactory();
       await candidateStore.connect(env.MONGO_URI);
+      databaseStage = 'initialize';
       message = 'MongoDB initialization failed. Check database permissions and administrator configuration.';
       await candidateStore.initialize({ username: env.ADMIN_USERNAME, password: env.ADMIN_PASSWORD, prizes: PRIZES });
       code = 'API_INITIALIZATION_ERROR';
@@ -39,14 +42,15 @@ export function createRuntime({ env = process.env, storeFactory = () => new Mong
       store = candidateStore;
       app = candidateApp;
       return app;
-    } catch {
+    } catch (error) {
+      const reason = code === 'DATABASE_UNAVAILABLE' ? databaseFailureReason(error, databaseStage) : undefined;
       // Driver errors can contain the URI and credentials. Only log our fixed messages.
       if (candidateStore) {
         try { await candidateStore.close(); }
         catch { logger.error('MongoDB cleanup failed after API initialization.'); }
       }
-      logger.error(message);
-      throw Object.assign(new Error(message), { code });
+      logger.error(reason ? `${message} [${reason}]` : message);
+      throw Object.assign(new Error(message), { code, ...(reason ? { reason } : {}) });
     }
   };
 
@@ -69,7 +73,9 @@ export function createRuntime({ env = process.env, storeFactory = () => new Mong
       const code = ['API_CONFIGURATION_ERROR', 'DATABASE_UNAVAILABLE', 'API_INITIALIZATION_ERROR'].includes(error.code)
         ? error.code : 'API_INITIALIZATION_ERROR';
       const health = ['/health', '/api/health'].includes(req.path.replace(/\/$/, ''));
-      res.status(503).json(health ? { ok: false, database: 'unavailable', code } : { message: unavailableMessage, code });
+      const diagnostic = code === 'DATABASE_UNAVAILABLE' && DATABASE_FAILURE_REASONS.includes(error.reason)
+        ? { reason: error.reason } : {};
+      res.status(503).json(health ? { ok: false, database: 'unavailable', code, ...diagnostic } : { message: unavailableMessage, code });
     });
   };
 
