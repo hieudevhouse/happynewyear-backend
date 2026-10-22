@@ -6,6 +6,7 @@ import { MongoStore } from '../src/mongo-store.js';
 test('MongoStore generates distinct UUIDs for upserts with a null document scope', async () => {
   const schemas = new Map();
   const connection = {
+    async asPromise() { return this; },
     model(name, schema) {
       schemas.set(name, schema);
       return { init: async () => {} };
@@ -13,7 +14,7 @@ test('MongoStore generates distinct UUIDs for upserts with a null document scope
   };
   const originalCreateConnection = mongoose.createConnection;
   try {
-    mongoose.createConnection = () => ({ asPromise: async () => connection });
+    mongoose.createConnection = () => connection;
     await new MongoStore().connect('mongodb://unused.invalid/test');
   } finally {
     mongoose.createConnection = originalCreateConnection;
@@ -29,5 +30,25 @@ test('MongoStore generates distinct UUIDs for upserts with a null document scope
       assert.ok(!generated.has(id), `${name} generates a fresh UUID`);
       generated.add(id);
     }
+  }
+});
+
+test('MongoStore retains a failed connection so initialization cleanup can close it', async () => {
+  const failure = new Error('connection failed');
+  let closed = 0;
+  const connection = {
+    async asPromise() { throw failure; },
+    async close() { closed++; },
+  };
+  const originalCreateConnection = mongoose.createConnection;
+  const store = new MongoStore();
+  try {
+    mongoose.createConnection = () => connection;
+    await assert.rejects(store.connect('mongodb://unused.invalid/test'), error => error === failure);
+    assert.equal(store.connection, connection);
+    await store.close();
+    assert.equal(closed, 1);
+  } finally {
+    mongoose.createConnection = originalCreateConnection;
   }
 });

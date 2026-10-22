@@ -2,6 +2,12 @@
 
 API Express/Mongoose cho LuckyMoney 2027, quản lý mã quay, phiên đăng nhập, phần thưởng và QR nhận tiền. Frontend được deploy riêng từ [happynewyear](https://github.com/hieudevhouse/happynewyear).
 
+## Deploy trên Vercel
+
+Làm theo [hướng dẫn Vercel](deploy/vercel.md): import repo backend với Root Directory `./`, để Vercel nhận diện Express, thêm biến môi trường trong dashboard rồi deploy. Vercel gọi Express app được export từ `server.js`; không cần cấu hình `PORT` hay chạy `npm start` làm Build Command.
+
+Kiểm tra `https://<domain-backend>/health` sau khi deploy. Nếu báo `503`, xem Runtime Logs để kiểm tra cấu hình hoặc kết nối MongoDB. Backend chỉ phục vụ API; `/` trả `404` khi ứng dụng đã sẵn sàng.
+
 ## Chạy ứng dụng
 
 Cần Node.js từ `22.11.0` trở lên và MongoDB.

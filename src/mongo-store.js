@@ -15,7 +15,8 @@ const consumed = { $or: [
 const unconsumed = { $not: [consumed] };
 export class MongoStore {
   async connect(uri) {
-    this.connection = await mongoose.createConnection(uri, { serverSelectionTimeoutMS: 10000, bufferCommands: false }).asPromise();
+    this.connection = mongoose.createConnection(uri, { serverSelectionTimeoutMS: 10000, bufferCommands: false });
+    await this.connection.asPromise();
     const options = { timestamps: true, versionKey: false, bufferCommands: false };
     const imageSchema = new mongoose.Schema({ url: String, publicId: String }, { _id: false });
     const payoutsSchema = new mongoose.Schema({ momo: { type: imageSchema, default: null }, zalopay: { type: imageSchema, default: null } }, { _id: false });
