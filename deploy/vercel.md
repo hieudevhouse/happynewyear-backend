@@ -29,7 +29,7 @@ Mở **Settings → Environment Variables**, tạo các biến sau cho **Product
 | `MONGO_URI` | Connection string MongoDB có thể truy cập từ Vercel; không dùng `localhost`/`127.0.0.1` |
 | `ADMIN_USERNAME` | Tên tài khoản quản trị của ứng dụng |
 | `ADMIN_PASSWORD` | Mật khẩu riêng, ít nhất 12 ký tự |
-| `CLIENT_ORIGIN` | Origin FE chính xác, ví dụ `https://ten-frontend.vercel.app`; không có path hoặc dấu `/` cuối |
+| `CLIENT_ORIGIN` | Các origin FE bổ sung, ví dụ custom domain; không có path hoặc dấu `/` cuối |
 | `COOKIE_SECURE` | `true` |
 | `COOKIE_SAME_SITE` | `none` nếu FE và BE ở hai site khác nhau, ví dụ hai project `*.vercel.app` |
 | `TRUST_PROXY` | `1` khi request đến app trực tiếp qua proxy Vercel |
@@ -38,13 +38,15 @@ Mở **Settings → Environment Variables**, tạo các biến sau cho **Product
 | `CLOUDINARY_API_SECRET` | API secret Cloudinary, chỉ lưu ở backend |
 | `CLOUDINARY_FOLDER` | Tùy chọn, mặc định `lucky-money/qr` |
 
-`CLIENT_ORIGIN` hỗ trợ nhiều origin ngăn cách bằng dấu phẩy. Với FE dùng custom domain, nhập origin custom domain đang truy cập. Cookie giữa hai site cần HTTPS và `SameSite=None`; một số trình duyệt vẫn chặn cookie bên thứ ba. Nếu FE/BE dùng HTTPS trên các subdomain cùng site, có thể dùng `COOKIE_SAME_SITE=lax`.
+Khi `NODE_ENV=production`, frontend chính thức `https://happynewyear-six-bay.vercel.app` luôn được cho phép, kể cả khi `CLIENT_ORIGIN` còn chứa origin local. `CLIENT_ORIGIN` bổ sung các origin khác, hỗ trợ nhiều origin ngăn cách bằng dấu phẩy; mỗi origin vẫn được kiểm tra đúng định dạng. Với FE dùng custom domain, nhập origin custom domain đang truy cập. Các domain Vercel khác không được tự động cho phép.
+
+Cookie giữa hai site cần HTTPS và `SameSite=None`; một số trình duyệt vẫn chặn cookie bên thứ ba. Nếu FE/BE dùng HTTPS trên các subdomain cùng site, có thể dùng `COOKIE_SAME_SITE=lax`. Frontend chính thức dùng proxy `/api` trên cùng hostname để cookie phiên thuộc frontend.
 
 `TRUST_PROXY=1` tương ứng tin một hop proxy gần Express. Vercel đặt `X-Forwarded-For` và `X-Forwarded-Proto`; nếu thêm CDN/proxy khác phía trước, cần kiểm tra lại đường đi request và số hop. Xem [Vercel request headers](https://vercel.com/docs/headers/request-headers) và [Express behind proxies](https://expressjs.com/en/guide/behind-proxies/).
 
 Sau khi thêm hoặc sửa biến môi trường, **Redeploy** để tạo deployment mới. Vercel không áp dụng thay đổi env vào deployment cũ. Xem [Environment variables](https://vercel.com/docs/environment-variables).
 
-FE cần `VITE_API_BASE_URL=https://<domain-backend>/api`, sau đó build/deploy lại FE. Không đưa `MONGO_URI`, mật khẩu quản trị hoặc Cloudinary secret vào biến `VITE_*`.
+Frontend chính thức dùng `VITE_API_BASE_URL=/api` và cấu hình Vercel rewrite `/api` tới `https://happynewyear-backend.vercel.app/api`. Với FE gọi API trực tiếp ở hostname khác, dùng `VITE_API_BASE_URL=https://<domain-backend>/api`, sau đó build/deploy lại FE. Không đưa `MONGO_URI`, mật khẩu quản trị hoặc Cloudinary secret vào biến `VITE_*`.
 
 ## MongoDB Atlas
 

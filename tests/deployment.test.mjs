@@ -7,6 +7,7 @@ import { configFromEnv } from '../src/config.js';
 import { MemoryStore } from '../src/memory-store.js';
 
 const ORIGIN = 'https://gifts.example.com';
+const PRODUCTION_FRONTEND_ORIGIN = 'https://happynewyear-six-bay.vercel.app';
 const ADMIN = { username: 'deployment-admin', password: 'only-used-for-deployment-tests' };
 
 async function fixture(t, config = {}) {
@@ -45,6 +46,42 @@ test('direct cross-origin frontend requests receive credentialed preflight and D
   assert.equal(response.headers.get('access-control-allow-credentials'), 'true');
   assert.equal(response.headers.get('access-control-expose-headers'), 'Date');
   assert.ok(Number.isFinite(Date.parse(response.headers.get('date'))));
+});
+
+test('official production frontend can preflight, sign in and restore its session with an older CLIENT_ORIGIN', async t => {
+  const { request } = await fixture(t, configFromEnv({
+    NODE_ENV: 'production', CLIENT_ORIGIN: 'http://localhost:5173',
+  }));
+  const headers = { Origin: PRODUCTION_FRONTEND_ORIGIN };
+  const preflight = await request('/api/auth/login', { method: 'OPTIONS', headers: {
+    ...headers, 'Access-Control-Request-Method': 'POST', 'Access-Control-Request-Headers': 'content-type',
+  } });
+  assert.equal(preflight.status, 204);
+  assert.equal(preflight.headers.get('access-control-allow-origin'), PRODUCTION_FRONTEND_ORIGIN);
+  assert.equal(preflight.headers.get('access-control-allow-credentials'), 'true');
+
+  const login = await request('/api/auth/login', { method: 'POST', body: ADMIN, headers });
+  assert.equal(login.status, 200);
+  const cookie = login.headers.get('set-cookie');
+  assert.match(cookie, /^lm_admin=/);
+  assert.match(cookie, /; HttpOnly/);
+  assert.match(cookie, /; Secure/);
+  const restored = await request('/api/auth/me', { headers: { ...headers, Cookie: cookie.split(';', 1)[0] } });
+  assert.equal(restored.status, 200);
+  assert.equal((await restored.json()).admin.username, ADMIN.username);
+
+  for (const options of [
+    { method: 'OPTIONS', headers: { 'Access-Control-Request-Method': 'POST' } },
+    { headers: { Cookie: cookie.split(';', 1)[0] } },
+    { method: 'POST', body: ADMIN },
+  ]) {
+    const response = await request(options.method === 'GET' || !options.method ? '/api/auth/me' : '/api/auth/login', {
+      ...options, headers: { ...options.headers, Origin: 'https://untrusted.example' },
+    });
+    assert.equal(response.status, 403);
+    assert.equal(response.headers.get('access-control-allow-origin'), null);
+    assert.equal(response.headers.get('set-cookie'), null);
+  }
 });
 
 test('health probes support GET and HEAD without a session and track database recovery', async t => {
@@ -155,6 +192,10 @@ test('environment validates cookie/proxy configuration and exact frontend origin
   assert.equal(configFromEnv({ TRUST_PROXY: '2' }).trustProxy, 2);
   assert.deepEqual(configFromEnv({ CLIENT_ORIGIN: `${ORIGIN}, https://admin.example.com` }).clientOrigins,
     [ORIGIN, 'https://admin.example.com']);
+  assert.deepEqual(configFromEnv({ NODE_ENV: 'production', CLIENT_ORIGIN: `${ORIGIN}, ${PRODUCTION_FRONTEND_ORIGIN}, ${ORIGIN}` }).clientOrigins,
+    [ORIGIN, PRODUCTION_FRONTEND_ORIGIN]);
+  assert.deepEqual(configFromEnv({ NODE_ENV: 'development', CLIENT_ORIGIN: ORIGIN }).clientOrigins, [ORIGIN]);
+  assert.throws(() => configFromEnv({ NODE_ENV: 'production', CLIENT_ORIGIN: 'https://example.com/' }));
   for (const env of [
     { COOKIE_SAME_SITE: 'none', COOKIE_SECURE: 'false' },
     { COOKIE_SAME_SITE: 'invalid' },

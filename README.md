@@ -57,6 +57,8 @@ TRUST_PROXY=1
 
 `CLIENT_ORIGIN` phải khớp chính xác origin frontend, gồm scheme và port nếu có, không có đường dẫn hay dấu `/` cuối. Nhiều origin ngăn cách bằng dấu phẩy. Frontend cấu hình `VITE_API_BASE_URL=https://api.example.com/api` rồi build lại.
 
+Khi `NODE_ENV=production`, backend luôn cho phép frontend chính thức `https://happynewyear-six-bay.vercel.app`. `CLIENT_ORIGIN` bổ sung các origin khác, như domain riêng hoặc môi trường phát triển; mỗi origin vẫn phải đúng định dạng trên. Các domain Vercel khác không được tự động cho phép.
+
 Hai hostname cùng site và dùng HTTPS như ví dụ có thể dùng `COOKIE_SAME_SITE=lax`. Nếu frontend/API ở hai site khác nhau, dùng `COOKIE_SAME_SITE=none` với `COOKIE_SECURE=true`; trình duyệt có thể chặn cookie bên thứ ba. Có thể cho Nginx phía frontend proxy `/api` sang server backend để phiên dùng cùng hostname với frontend.
 
 `TRUST_PROXY=1` dành cho một reverse proxy trước Express như mẫu Nginx đi kèm. Khi chạy API trực tiếp không qua proxy, dùng `0`. Nếu có nhiều proxy, đặt số hop phù hợp.

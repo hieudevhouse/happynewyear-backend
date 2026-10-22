@@ -1,4 +1,5 @@
 const SAME_SITES = new Set(['lax', 'strict', 'none']);
+const PRODUCTION_FRONTEND_ORIGIN = 'https://happynewyear-six-bay.vercel.app';
 
 export function sessionConfig(config = {}) {
   const cookieSameSite = config.cookieSameSite ?? 'lax';
@@ -29,10 +30,11 @@ export function configFromEnv(env = process.env) {
     try { url = new URL(origin); } catch { throw new Error('CLIENT_ORIGIN must contain comma-separated HTTP(S) origins.'); }
     if (!['http:', 'https:'].includes(url.protocol) || url.origin !== origin) throw new Error('CLIENT_ORIGIN must contain HTTP(S) origins without paths or trailing slashes.');
   }
+  if (production) clientOrigins.push(PRODUCTION_FRONTEND_ORIGIN);
   return {
     production,
     ...security,
-    clientOrigins,
+    clientOrigins: [...new Set(clientOrigins)],
     sessionDays: 30,
     cloudinary: {
       cloudName: env.CLOUDINARY_CLOUD_NAME,
